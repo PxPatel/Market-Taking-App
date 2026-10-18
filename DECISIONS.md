@@ -16,7 +16,7 @@ Choices the spec leaves open or gets wrong, and why. Newest at the bottom of eac
 
 **D5. Buy and sell checks follow the spec as written.** A buy must be fully paid for (size × Ask ≤ budget); a sell must cover its worst-case loss (size × (max sum − Bid) ≤ budget). The asymmetry is intended: cash for a long, margin for a short. Together they make a negative budget impossible (tested over 1,000 seeded sessions).
 
-**D6. Hard size cap of 10,000.** If Bid ≥ max sum, a short risks nothing and the spec's rule allows any size. Phase 2 quote repair will prevent such quotes (D9), but the validator is total on its own: no order may exceed 10,000 units. This also bounds the custom size field and keeps arithmetic far from overflow.
+**D6. Hard size cap of 10,000.** If Bid ≥ max sum, a short risks nothing and the spec's rule allows any size. Phase 2 quote repair will prevent such quotes (D9), but the validator is total on its own: no order may exceed 10,000 units. This also bounds the custom size field and keeps arithmetic far from overflow. It overrides the spec only if the budget exceeds 10,000 × Ask, which no sensible setting reaches.
 
 ## Quotes and events (applied in Phase 2)
 
@@ -49,3 +49,14 @@ Choices the spec leaves open or gets wrong, and why. Newest at the bottom of eac
 **D16. `TrainerApp` sources are guarded by `#if canImport(SwiftUI)`.** `swift test` builds every target, and SwiftUI doesn't exist on Linux. A `#if os(Linux)` switch in Package.swift would not work, because xtool also evaluates the manifest on Linux when cross-compiling.
 
 **D17. Own uniform-int and sampling code.** `Int.random(in:using:)`'s algorithm is a standard-library detail that may change between Swift releases; owning it (Lemire's method, partial Fisher–Yates) keeps seeded replays stable.
+
+## Review follow-ups (Phase 1)
+
+An independent review of the maths confirmed that fair value, max/min sum, validation and settlement are correct (it cross-checked 400 random hands in Python with 0 mismatches). It also found the following, now fixed:
+
+**D18. Guards instead of trust.**
+- `RandomDraws.int` used non-wrapping arithmetic and crashed on ranges wider than `Int.max`.
+- `Settlement.settle` now settles at the validated `context.quote` (no separate quote argument), and requires `0 ≤ trueSum ≤ maxPossibleSum`. Its no-negative-budget check is a `precondition`, so it holds in release builds too.
+- Event overrides must be card values (2–14). A negative override would break the buy rule's guarantee.
+- Decoding `Rational` and `Hand` applies the same rules as their initialisers and throws on bad data, ready for saved sessions in Phase 4.
+- Still open, for Phase 2: absurd quotes (e.g. Ask near `Int.max`) could overflow `size × ask`. Quote repair (D9) bounds every quote to the round's possible range before any order is checked.

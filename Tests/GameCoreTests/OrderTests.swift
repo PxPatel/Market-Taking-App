@@ -66,6 +66,17 @@ struct OrderValidatorTests {
             == .sizeAboveLimit(limit: OrderValidator.maximumSize))
     }
 
+    @Test("With zero per-unit risk every size up to the cap is valid")
+    func zeroRiskConsistent() {
+        for bid in [42, 50] {
+            let ctx = context(budget: 0, bid: bid, ask: bid + 2, max: 42)
+            #expect(OrderValidator.maxValidSize(side: .sell, in: ctx) == OrderValidator.maximumSize)
+            for size in [1, 500, OrderValidator.maximumSize] {
+                #expect(OrderValidator.isValid(.sell(size: size), in: ctx))
+            }
+        }
+    }
+
     @Test("Rejection message reads like the spec: 'Needs 240, budget 180'")
     func message() {
         #expect(OrderRejection.insufficientBudget(required: 240, budget: 180).message == "Needs 240, budget 180")
@@ -114,15 +125,15 @@ struct SettlementTests {
     @Test("Settling updates the budget")
     func settleUpdatesBudget() {
         let ctx = OrderContext(quote: quote, budget: 500, maxPossibleSum: 42)
-        #expect(Settlement.settle(.buy(size: 10), quote: quote, trueSum: 30, in: ctx) == 560)
-        #expect(Settlement.settle(.sell(size: 10), quote: quote, trueSum: 30, in: ctx) == 400)
-        #expect(Settlement.settle(.skip, quote: quote, trueSum: 30, in: ctx) == 500)
+        #expect(Settlement.settle(.buy(size: 10), trueSum: 30, in: ctx) == 560)
+        #expect(Settlement.settle(.sell(size: 10), trueSum: 30, in: ctx) == 400)
+        #expect(Settlement.settle(.skip, trueSum: 30, in: ctx) == 500)
     }
 
     @Test("Worst case: a max-size sell that hits the max sum lands exactly on zero")
     func worstCaseSellHitsZero() {
         let ctx = OrderContext(quote: quote, budget: 220, maxPossibleSum: 42)
-        #expect(Settlement.settle(.sell(size: 10), quote: quote, trueSum: 42, in: ctx) == 0)
+        #expect(Settlement.settle(.sell(size: 10), trueSum: 42, in: ctx) == 0)
     }
 
     @Test("Budget never goes below zero across 1,000 seeded random sessions")
@@ -151,7 +162,7 @@ struct SettlementTests {
                 // Mostly go all-in to stress the boundary.
                 let maxSize = OrderValidator.maxValidSize(side: side, in: ctx)
                 let order: Order = maxSize == 0 ? .skip : Order(side: side, size: RandomDraws.int(in: max(1, maxSize - 2)...maxSize, using: &rng))
-                budget = Settlement.settle(order, quote: quote, trueSum: hand.trueSum, in: ctx)
+                budget = Settlement.settle(order, trueSum: hand.trueSum, in: ctx)
                 #expect(budget >= 0)
             }
         }

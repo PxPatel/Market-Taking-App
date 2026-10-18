@@ -18,6 +18,17 @@ public struct Rational: Hashable, Comparable, Codable, Sendable, CustomStringCon
 
     public static let zero = Rational(0)
 
+    /// Decoding normalises like `init`, so equality holds for saved values too.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let numerator = try container.decode(Int.self, forKey: .numerator)
+        let denominator = try container.decode(Int.self, forKey: .denominator)
+        guard denominator != 0 else {
+            throw DecodingError.dataCorruptedError(forKey: .denominator, in: container, debugDescription: "Zero denominator")
+        }
+        self.init(numerator, denominator)
+    }
+
     public var doubleValue: Double {
         Double(numerator) / Double(denominator)
     }

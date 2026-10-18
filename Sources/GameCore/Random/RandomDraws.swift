@@ -7,7 +7,8 @@ public enum RandomDraws {
         in range: ClosedRange<Int>,
         using rng: inout G
     ) -> Int {
-        let span = UInt64(range.upperBound - range.lowerBound) &+ 1
+        // Wrapping arithmetic: the width of e.g. Int.min...Int.max overflows Int.
+        let span = UInt64(bitPattern: Int64(range.upperBound &- range.lowerBound)) &+ 1
         if span == 0 { // the full 64-bit range
             return Int(truncatingIfNeeded: rng.next())
         }
@@ -16,7 +17,7 @@ public enum RandomDraws {
         while true {
             let (high, low) = span.multipliedFullWidth(by: rng.next())
             if low >= threshold {
-                return range.lowerBound + Int(high)
+                return range.lowerBound &+ Int(truncatingIfNeeded: high)
             }
         }
     }

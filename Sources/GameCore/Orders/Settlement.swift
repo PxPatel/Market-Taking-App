@@ -12,10 +12,12 @@ public enum Settlement {
     /// Budget after settling a valid order. The validity rules guarantee this is
     /// never negative: a buy can lose at most its cost, and a sell at most the
     /// worst-case loss it was checked against.
-    public static func settle(_ order: Order, quote: Quote, trueSum: Int, in context: OrderContext) -> Int {
+    /// Settles at `context.quote`, the same quote the order was validated against.
+    public static func settle(_ order: Order, trueSum: Int, in context: OrderContext) -> Int {
         precondition(OrderValidator.isValid(order, in: context), "Cannot settle an invalid order")
-        let budget = context.budget + profit(of: order, quote: quote, trueSum: trueSum)
-        assert(budget >= 0, "Validity rules should make a negative budget impossible")
+        precondition(trueSum >= 0 && trueSum <= context.maxPossibleSum, "True sum outside the round's possible range")
+        let budget = context.budget + profit(of: order, quote: context.quote, trueSum: trueSum)
+        precondition(budget >= 0, "Validity rules should make a negative budget impossible")
         return budget
     }
 }
